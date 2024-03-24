@@ -99,7 +99,18 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
             totalAmount += item.getProduct().getPrice() * item.getQuantity();
         }
         totalAmountTextView.setText("Total: $" + String.format("%.2f", totalAmount));
+        // Pass total amount to CheckoutActivity
+        checkoutButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Navigate to checkout activity
+                Intent intent = new Intent(CartActivity.this, CheckoutActivity.class);
+                intent.putExtra("totalAmount", totalAmount);
+                startActivity(intent);
+            }
+        });
     }
+
 
     // Implementing CartItemClickListener interface method
     public void onCartItemClicked(int position) {
