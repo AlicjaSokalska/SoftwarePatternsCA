@@ -1,20 +1,27 @@
 package com.example.softwarepatternsca;
-public class Product {
+
+import android.util.Log;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+public class Product implements ProductSubject {
+    private static final int LOW_STOCK_THRESHOLD =10 ;
     private String id;
     private String name;
     private String manufacturer;
     private double price;
     private String category;
-    private String imageUri; // Add this field for image URI
-    private int stockLevel; // New attribute for stock level
+    private String imageUri;
+    private String comments;
+    private int stockLevel;
     private int reviews;
+    private List<ProductObserver> observers = new ArrayList<>();
 
-    public Product() {
-        // Default constructor required for Firebase
-    }
 
-    // Constructor with stock level
-    public Product(String id, String name, String manufacturer, double price, String category, String imageUri, int stockLevel, int reviews) {
+    // Constructor
+    public Product(String id, String name, String manufacturer, double price, String category, String imageUri, int stockLevel, int reviews, String comments) {
         this.id = id;
         this.name = name;
         this.manufacturer = manufacturer;
@@ -23,6 +30,12 @@ public class Product {
         this.imageUri = imageUri;
         this.stockLevel = stockLevel;
         this.reviews = reviews;
+        this.comments = comments;
+        this.observers = new ArrayList<>();
+    }
+
+    public Product() {
+        // Default constructor required for Firebase
     }
 
 
@@ -75,6 +88,14 @@ public class Product {
         this.category = category;
     }
 
+    public String getComments() {
+        return comments;
+    }
+
+    public void setComments(String comments) {
+        this.comments = comments;
+    }
+
     public String getImageUri() {
         return imageUri;
     }
@@ -84,10 +105,34 @@ public class Product {
 
     }
 
+
     public int getStockLevel() {
         return stockLevel;
     }
 
     public void setStockLevel(int stockLevel) {
         this.stockLevel = stockLevel;
-    }}
+        Log.d("Product", "Stock level set for product: " + name);
+        notifyObservers(this);
+    }
+
+
+    @Override
+    public void registerObserver(ProductObserver observer) {
+        observers.add(observer);
+    }
+
+    @Override
+    public void removeObserver(ProductObserver observer) {
+        observers.remove(observer);
+    }
+
+    @Override
+    public void notifyObservers(Product product) {
+        if (observers != null && stockLevel <= LOW_STOCK_THRESHOLD) { // Assuming LOW_STOCK_THRESHOLD is a constant indicating the threshold for low stock
+            for (ProductObserver observer : observers) {
+                observer.notifyLowStock(product);
+            }
+        }
+    }
+}
