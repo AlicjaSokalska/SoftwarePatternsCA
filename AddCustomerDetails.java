@@ -20,12 +20,11 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-
 public class AddCustomerDetails extends AppCompatActivity {
 
     private EditText nameEditText, surnameEditText, addressEditText;
     private Spinner paymentMethodSpinner;
-    private Button saveButton,mainButton;
+    private Button saveButton, mainButton;
     private FirebaseAuth mAuth;
     private FirebaseUser currentUser;
 
@@ -74,8 +73,6 @@ public class AddCustomerDetails extends AppCompatActivity {
                 finish(); // Optional: Close the current activity
             }
         });
-
-
     }
 
     private void saveCustomerDetails() {
@@ -102,8 +99,13 @@ public class AddCustomerDetails extends AppCompatActivity {
             return;
         }
 
-        // Create customer object
-        Customer customer = new Customer("", name, surname, address, paymentMethod);
+        // Build the Customer object using the Builder Pattern
+        Customer customer = new Customer.Builder()
+                .name(name)
+                .surname(surname)
+                .address(address)
+                .paymentMethod(paymentMethod)
+                .build();
 
         // Get reference to Firebase Realtime Database
         FirebaseDatabase database = FirebaseDatabase.getInstance();
@@ -115,7 +117,6 @@ public class AddCustomerDetails extends AppCompatActivity {
                     @Override
                     public void onSuccess(Void aVoid) {
                         Toast.makeText(AddCustomerDetails.this, "Customer details saved successfully", Toast.LENGTH_SHORT).show();
-
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {

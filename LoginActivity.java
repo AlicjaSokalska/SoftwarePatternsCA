@@ -27,7 +27,7 @@ public class LoginActivity extends AppCompatActivity {
     TextView textView, adminTextView;
     ProgressBar progressBar;
 
-
+    private AuthState currentState;
 
 
 
@@ -64,12 +64,17 @@ public class LoginActivity extends AppCompatActivity {
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                loginUser();
+                String email = emailEditText.getText().toString();
+                String password = passwordEditText.getText().toString();
+                currentState.authenticate(mAuth, email, password,LoginActivity.this);
+
+              //  loginUser();
             }
         });
+        currentState = new LoggedOutState();
     }
 
-    private void loginUser() {
+  /*  private void loginUser() {
         progressBar.setVisibility(View.VISIBLE);
         String email = emailEditText.getText().toString();
         String password = passwordEditText.getText().toString();
@@ -104,5 +109,5 @@ public class LoginActivity extends AppCompatActivity {
                         }
                     }
                 });
-    }
+    }*/
 }

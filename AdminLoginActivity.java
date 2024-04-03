@@ -26,7 +26,7 @@ public class AdminLoginActivity extends AppCompatActivity {
     TextView textView;
     ProgressBar progressBar;
 
-
+    private AuthState currentState;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
