@@ -7,8 +7,9 @@ public class Transaction {
     private String transactionNumber;
 
     public Transaction() {
-        // Default constructor required for Firebase
+
     }
+
 
     public Transaction(double totalAmount, String paymentMethod, String transactionNumber) {
         this.totalAmount = totalAmount;
@@ -27,5 +28,7 @@ public class Transaction {
     public String getTransactionNumber() {
         return transactionNumber;
     }
-
+    void accept(TransactionVisitor visitor) {
+        visitor.visit(this);
+    }
 }
