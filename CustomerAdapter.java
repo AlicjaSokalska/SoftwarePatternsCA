@@ -3,6 +3,7 @@ package com.example.softwarepatternsca;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -11,14 +12,15 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-
 // RecyclerView Adapter
-public  class CustomerAdapter extends RecyclerView.Adapter<CustomerAdapter.CustomerViewHolder> {
+public class CustomerAdapter extends RecyclerView.Adapter<CustomerAdapter.CustomerViewHolder> {
 
     private List<Customer> customers;
+    private OnItemClickListener listener;
 
-    public CustomerAdapter(List<Customer> customers) {
+    public CustomerAdapter(List<Customer> customers, OnItemClickListener listener) {
         this.customers = customers;
+        this.listener = listener;
     }
 
     @NonNull
@@ -32,11 +34,23 @@ public  class CustomerAdapter extends RecyclerView.Adapter<CustomerAdapter.Custo
     public void onBindViewHolder(@NonNull CustomerViewHolder holder, int position) {
         Customer customer = customers.get(position);
         holder.bind(customer);
+        holder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (listener != null) {
+                    listener.onItemClick(customer.getEmail()); // Pass the email instead of name
+                }
+            }
+        });
     }
 
     @Override
     public int getItemCount() {
         return customers.size();
+    }
+
+    public interface OnItemClickListener {
+        void onItemClick(String email); // Change parameter to email
     }
 
     public static class CustomerViewHolder extends RecyclerView.ViewHolder {
@@ -64,3 +78,4 @@ public  class CustomerAdapter extends RecyclerView.Adapter<CustomerAdapter.Custo
         }
     }
 }
+

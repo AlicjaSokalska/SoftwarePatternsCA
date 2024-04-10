@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -21,6 +22,8 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
+
 public class CartActivity extends AppCompatActivity implements CartAdapter.CartItemClickListener {
     private RecyclerView recyclerView;
     private CartAdapter cartAdapter;
@@ -28,6 +31,8 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
     private TextView totalAmountTextView;
     private Button checkoutButton;
     private double totalAmount = 0;
+
+    private Stack<ShoppingCartMemento> mementoStack = new Stack<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +50,7 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
 
         // Load cart items
         loadCartItems();
+        setUpUndoButton();
 
         // Set up checkout button click listener
         checkoutButton.setOnClickListener(new View.OnClickListener() {
@@ -55,6 +61,30 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
             }
         });
     }
+
+
+
+    private void restorePreviousState() {
+        if (!mementoStack.isEmpty()) {
+            ShoppingCartMemento previousState = mementoStack.pop();
+            cartItems.clear();
+            cartItems.addAll(previousState.getItems());
+            cartAdapter.notifyDataSetChanged();
+            updateTotalAmount();
+        } else {
+            // No more previous states to restore
+            Toast.makeText(this, "Cannot undo further", Toast.LENGTH_SHORT).show();
+        }}
+        private void setUpUndoButton() {
+            Button undoButton = findViewById(R.id.btnUndo);
+            undoButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    restorePreviousState();
+                }
+            });
+        }
+
 
     private void loadCartItems() {
         // Get the current user ID
@@ -76,12 +106,14 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
                         double productPrice = snapshot.child("price").getValue(Double.class);
                         int quantity = snapshot.child("quantity").getValue(Integer.class);
 
-                        Product product = new Product(productId, productName, "", productPrice, "", "", quantity, 0);
+                        Product product = new Product(productId, productName, "", productPrice, "", "", quantity, 0,"");
                         cartItems.add(new CartManager.CartItem(product, quantity));
                         totalAmount += productPrice * quantity; // Calculate total amount
                     }
                     cartAdapter.notifyDataSetChanged();
                     updateTotalAmount();
+                    applyDiscountDecorator();
+                    applyDiscount(totalAmount);
                 }
 
                 @Override
@@ -90,6 +122,8 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
                 }
             });
         }
+        ShoppingCartMemento memento = new ShoppingCartMemento(cartItems);
+        mementoStack.push(memento);
     }
 
     // Method to update total amount TextView
@@ -112,6 +146,7 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
     }
 
 
+
     // Implementing CartItemClickListener interface method
     public void onCartItemClicked(int position) {
         // Remove the item from the list
@@ -120,5 +155,73 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartI
 
         // Recalculate and update total amount
         updateTotalAmount();
+
+        ShoppingCartMemento memento = new ShoppingCartMemento(cartItems);
+        mementoStack.push(memento);
     }
+
+    private double applyDiscount(double totalAmount) {
+        // Create discount using factory
+        Discount discount = DiscountFactory.createDiscount(totalAmount);
+        // Apply discount
+        double discountedAmount = discount.applyDiscount(totalAmount);
+
+        // Notify user about the discount
+        if (discount instanceof PercentageDiscount) {
+            double discountPercentage = ((PercentageDiscount) discount).getPercentage();
+            Toast.makeText(CartActivity.this, "Congratulations! You received a " + discountPercentage + "% discount.", Toast.LENGTH_SHORT).show();
+        } else if (discount instanceof NoDiscount) {
+            Toast.makeText(CartActivity.this, "No discount applied.", Toast.LENGTH_SHORT).show();
+        }
+
+        return discountedAmount;
+    }
+
+    private void applyDiscountDecorator() {
+        if (totalAmount > 200) {
+            // Apply discount decorator
+            List<CartManager.CartItem> discountedCartItems = new ArrayList<>();
+            for (CartManager.CartItem cartItem : cartItems) {
+                // Calculate discounted price
+                double originalPrice = cartItem.getProduct().getPrice();
+                double discountedPrice = originalPrice * 0.2; // 10% discount
+
+                // Create a new product with discounted price
+                Product discountedProduct = new Product(
+                        cartItem.getProduct().getId(),
+                        cartItem.getProduct().getName(),
+                        cartItem.getProduct().getManufacturer(),
+                        discountedPrice,
+                        cartItem.getProduct().getCategory(),
+                        cartItem.getProduct().getImageUri(),
+                        cartItem.getProduct().getStockLevel(),
+                        cartItem.getProduct().getReviews(),
+                        cartItem.getProduct().getComments()
+                );
+                discountedCartItems.add(new CartManager.CartItem(discountedProduct, cartItem.getQuantity()));
+            }
+            cartItems.clear();
+            cartItems.addAll(discountedCartItems);
+            cartAdapter.notifyDataSetChanged();
+
+            // Notify user about the discount
+            Toast.makeText(CartActivity.this, "Congratulations! You are eligible for a 20% discount.", Toast.LENGTH_SHORT).show();
+        }
+
+}
+  /* private void applyDiscountDecorator() {
+       if (totalAmount < 200) {
+           // Apply delivery charge of $10
+           totalAmount += 10;
+           Toast.makeText(CartActivity.this, "Delivery charge of €10 applied.", Toast.LENGTH_SHORT).show();
+       } else {
+           // Free delivery for total amount over $200
+           Toast.makeText(CartActivity.this, "Free delivery applied.", Toast.LENGTH_SHORT).show();
+       }
+       // Update the total amount TextView
+       totalAmountTextView.setText("Total: €" + String.format("%.2f", totalAmount));
+   }
+*/
+
+
 }

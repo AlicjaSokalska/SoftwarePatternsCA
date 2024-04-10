@@ -4,18 +4,26 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 
 import android.content.Context;
 import android.text.InputType;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Filter;
+import android.widget.RatingBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -31,6 +39,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.softwarepatternsca.Product;
 import com.example.softwarepatternsca.R;
+import com.firebase.ui.database.FirebaseRecyclerAdapter;
+import com.firebase.ui.database.FirebaseRecyclerOptions;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -40,14 +52,19 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.List;
-public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductViewHolder> {
+import java.util.Map;
+
+public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductViewHolder> implements ProductObserver {
     private List<Product> productList;
     private Context context;
     private FirebaseAuth firebaseAuth;
+    private Product currentProduct;
+    Admin admin;
 
     public ProductAdapter(List<Product> productList) {
         firebaseAuth = FirebaseAuth.getInstance();
         this.productList = productList;
+
     }
 
     @NonNull
@@ -70,14 +87,35 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
                         if (isAdmin) {
                             showOptionsDialog(product);
                         } else {
-                            Toast.makeText(context, "Only admins can perform this action", Toast.LENGTH_SHORT).show();
+                            showRatingAndCommentDialog(product);
+                            // Toast.makeText(context, "Only admins can perform this action", Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
                 return true;
             }
         });
+
+        holder.productReviewTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //showUserReviewsDialog(product);
+                Intent intent = new Intent(context, ReviewActivity.class);
+
+                // Pass necessary data to the ReviewActivity using intent extras
+                intent.putExtra("productId", product.getId()); // Pass the product ID
+                intent.putExtra("productName", product.getName()); // Pass the product name
+                // You can pass any other necessary data here
+
+                // Start the ReviewActivity
+                context.startActivity(intent);
+            }
+        });
+
     }
+
+
+
 
 
     @Override
@@ -154,7 +192,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
 
     private void updateProduct(String productId, String name, String manufacturer, double price, String category, int stockLevel, String imageUri) {
         DatabaseReference productRef = FirebaseDatabase.getInstance().getReference("products").child(productId);
-        Product updatedProduct = new Product(productId, name, manufacturer, price, category, imageUri, stockLevel, 0); // Pass the existing imageUri
+        Product updatedProduct = new Product(productId, name, manufacturer, price, category, imageUri, stockLevel, 0, ""); // Pass the existing imageUri
         productRef.setValue(updatedProduct);
     }
 
@@ -209,27 +247,80 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
         void onAdminChecked(boolean isAdmin);
     }
 
-    private void isAdmin(AdminCheckListener adminCheckListener) {
-        FirebaseUser user = firebaseAuth.getCurrentUser();
-        if (user != null) {
-            DatabaseReference adminsRef = FirebaseDatabase.getInstance().getReference("admins");
-            adminsRef.child(user.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    boolean isAdmin = dataSnapshot.exists();
-                    adminCheckListener.onAdminChecked(isAdmin); // Notify listener with the result
-                }
 
-                @Override
-                public void onCancelled(@NonNull DatabaseError databaseError) {
-                    // Handle error
-                    adminCheckListener.onAdminChecked(false); // Notify listener with default value
+
+    private void isAdmin(AdminCheckListener adminCheckListener) {
+      FirebaseUser user = firebaseAuth.getCurrentUser();
+      if (user != null) {
+          String userEmail = user.getEmail();
+          boolean isAdmin = userEmail != null && userEmail.equals("admin@gmail.com");
+          adminCheckListener.onAdminChecked(isAdmin); // Notify listener with the result
+      } else {
+          adminCheckListener.onAdminChecked(false);
+
+      }
+  }
+
+
+    private void showRatingAndCommentDialog(Product product) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Rate and Comment");
+
+        View view = LayoutInflater.from(context).inflate(R.layout.dialog_rating_comment, null);
+        builder.setView(view);
+
+        EditText ratingEditText = view.findViewById(R.id.ratingEditText);
+        EditText commentEditText = view.findViewById(R.id.commentEditText);
+
+        builder.setPositiveButton("Submit", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String ratingText = ratingEditText.getText().toString().trim();
+                String comment = commentEditText.getText().toString().trim();
+                if (!ratingText.isEmpty() && !comment.isEmpty()) {
+                    float rating = Float.parseFloat(ratingText);
+                    addRatingAndComment(product, rating, comment);
+                } else {
+                    Toast.makeText(context, "Please provide a rating and comment", Toast.LENGTH_SHORT).show();
                 }
-            });
+            }
+        });
+
+        builder.setNegativeButton("Cancel", null);
+
+        builder.show();
+    }
+    private void addRatingAndComment(Product product, float rating, String comment) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            String userId = user.getUid();
+            String userEmail = user.getEmail();
+
+            DatabaseReference userReviewRef = FirebaseDatabase.getInstance().getReference("products")
+                    .child(product.getId()).child("userReviews").push(); // Push a new review node
+
+            // Save user review with email
+            userReviewRef.child("userId").setValue(userId);
+            userReviewRef.child("userEmail").setValue(userEmail);
+            userReviewRef.child("rating").setValue(rating);
+            userReviewRef.child("comment").setValue(comment);
+
+            // Assuming you have a "reviews" node where you store all the reviews for statistical purposes
+            DatabaseReference reviewsRef = FirebaseDatabase.getInstance().getReference("reviews").child(product.getId()).push();
+            reviewsRef.child("userId").setValue(userId);
+            reviewsRef.child("rating").setValue(rating);
+
+            Toast.makeText(context, "Rating and comment added successfully", Toast.LENGTH_SHORT).show();
         } else {
-            adminCheckListener.onAdminChecked(false); // Notify listener with default value
+            Toast.makeText(context, "User not authenticated", Toast.LENGTH_SHORT).show();
         }
     }
+
+
+
+
+
+
     private void showQuantityInputDialog(Product product, Context context) {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("Enter Quantity");
@@ -300,6 +391,10 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
             // User is not authenticated, handle this case accordingly
             Toast.makeText(context, "User not authenticated", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    public void notifyLowStock(Product product) {
+         admin.notifyLowStock(product);
     }
 
 }

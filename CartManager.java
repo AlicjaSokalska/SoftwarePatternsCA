@@ -20,7 +20,7 @@ public class CartManager {
         cartItems.add(new CartItem(product, quantity));
     }
 
-    // Other methods for managing the cart, such as removing items, getting total price, etc.
+
 
     public static List<CartItem> getCartItems() {
         return cartItems;

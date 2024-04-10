@@ -74,40 +74,5 @@ public class LoginActivity extends AppCompatActivity {
         currentState = new LoggedOutState();
     }
 
-  /*  private void loginUser() {
-        progressBar.setVisibility(View.VISIBLE);
-        String email = emailEditText.getText().toString();
-        String password = passwordEditText.getText().toString();
 
-
-        if (TextUtils.isEmpty(email)) {
-            Toast.makeText(LoginActivity.this, "Enter email", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if
-        (TextUtils.isEmpty(password)) {
-            Toast.makeText(LoginActivity.this, "Enter password", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-
-        mAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        if (task.isSuccessful()) {
-                            // Login successful
-                            Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
-                            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                            startActivity(intent);
-                            finish();
-                        } else {
-                            // Login failed
-                            String errorMessage = task.getException().getMessage();
-                            Toast.makeText(LoginActivity.this, "Login failed: " + errorMessage, Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                });
-    }*/
 }

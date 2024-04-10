@@ -15,5 +15,5 @@ public class Admin implements ProductObserver {
     }
 
 
-    // Other admin-related methods
+
 }

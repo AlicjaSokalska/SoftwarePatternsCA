@@ -21,15 +21,19 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.List;
+import java.util.Stack;
+
 public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder> {
     private List<CartManager.CartItem> cartItems;
     private Context context;
     private CartItemClickListener listener;
     private DatabaseReference cartRef;
 
+
     public CartAdapter(List<CartManager.CartItem> cartItems, CartItemClickListener listener) {
         this.cartItems = cartItems;
         this.listener = listener;
+
         // Initialize Firebase database reference
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();

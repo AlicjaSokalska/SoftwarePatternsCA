@@ -43,7 +43,7 @@ public class CheckoutActivity extends AppCompatActivity {
     private CheckoutAdapter checkoutAdapter;
     private List<CartManager.CartItem> cartItems;
     private TextView totalAmountTextView;
-    private EditText nameEditText, addressEditText, contactEditText,surnameEditText;
+    private EditText nameEditText, addressEditText, contactEditText, surnameEditText;
     private EditText cardNumberEditText, cardNameEditText, cvvEditText;
     private String paymentMethod;
     private DatabaseReference cartRef;
@@ -51,7 +51,7 @@ public class CheckoutActivity extends AppCompatActivity {
     private double totalAmount = 0;
     private Spinner paymentMethodSpinner; // Declare paymentMethodSpinner as a class field
     private ArrayAdapter<CharSequence> adapter; // Declare adapter as a class field
-
+    private PaymentStrategy paymentStrategy;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +76,7 @@ public class CheckoutActivity extends AppCompatActivity {
             totalAmount = intent.getDoubleExtra("totalAmount", 0.0);
             totalAmountTextView.setText("Total Amount: €" + String.format("%.2f", totalAmount));
         }
+
 
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
@@ -138,6 +139,16 @@ public class CheckoutActivity extends AppCompatActivity {
         });
     }
 
+    public double getTotalAmount() {
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("totalAmount")) {
+            return intent.getDoubleExtra("totalAmount", 0.0);
+        } else {
+            return 0.0; // Or any default value if the total amount is not available
+        }
+    }
+
+
     private void getUserPaymentMethod() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
@@ -167,136 +178,34 @@ public class CheckoutActivity extends AppCompatActivity {
     }
 
     private void processCheckout() {
-        switch (paymentMethod) {
-            case "Credit Card":
-            case "Debit Card":
-                showCardDetailsDialog();
-                break;
-            case "PayPal":
-                showPayPalDialog();
-                break;
-            case "Bank Transfer":
-                showBankTransferDialog();
-                break;
-            default:
-                // Handle other payment methods or continue checkout without payment details
-                break;
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("totalAmount")) {
+            double totalAmount = intent.getDoubleExtra("totalAmount", 0.0);
+            switch (paymentMethod) {
+                case "Credit Card":
+                case "Debit Card":
+                    paymentStrategy = new CardPaymentStrategy(this, totalAmount);
+                    break;
+                case "PayPal":
+                    paymentStrategy = new PayPalPaymentStrategy(this, totalAmount);
+                    break;
+                case "Bank Transfer":
+                    paymentStrategy = new BankTransferPaymentStrategy(this, totalAmount);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid payment method: " + paymentMethod);
+
+
+            }
+            if (paymentStrategy != null) {
+                paymentStrategy.processPayment();
+                updateStock();
+            }
         }
     }
-    private void showPayPalDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("PayPal Login");
-
-        // Inflate the layout for the dialog
-        View view = getLayoutInflater().inflate(R.layout.dialog_paypal, null);
-        builder.setView(view);
-
-        EditText usernameEditText = view.findViewById(R.id.usernameEditText);
-        EditText passwordEditText = view.findViewById(R.id.passwordEditText);
-
-        builder.setPositiveButton("Login", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String username = usernameEditText.getText().toString().trim();
-                String password = passwordEditText.getText().toString().trim();
-                navigateToReceiptActivity();
-                // You can perform further actions with the username and password, like authentication
-            }
-        });
-
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-
-        builder.show();
-    }
 
 
-    private void showBankTransferDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Bank Transfer Details");
-
-        // Inflate the layout for the dialog
-        View view = getLayoutInflater().inflate(R.layout.dialog_bank_transfer, null);
-        builder.setView(view);
-
-        EditText accountNumberEditText = view.findViewById(R.id.accountNumberEditText);
-        EditText routingNumberEditText = view.findViewById(R.id.routingNumberEditText);
-
-        builder.setPositiveButton("Submit", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String accountNumber = accountNumberEditText.getText().toString().trim();
-                String routingNumber = routingNumberEditText.getText().toString().trim();
-                navigateToReceiptActivity();
-                // You can perform further actions with the account and routing numbers
-            }
-        });
-
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-
-        builder.show();
-    }
-
-
-    private void showCardDetailsDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Enter Card Details");
-
-        View view = getLayoutInflater().inflate(R.layout.dialog_card_details, null);
-        builder.setView(view);
-
-        cardNumberEditText = view.findViewById(R.id.cardNumberEditText);
-        cardNameEditText = view.findViewById(R.id.cardNameEditText);
-        cvvEditText = view.findViewById(R.id.cvvEditText);
-
-        builder.setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String cardNumber = cardNumberEditText.getText().toString();
-                String cardName = cardNameEditText.getText().toString();
-                String cvv = cvvEditText.getText().toString();
-                navigateToReceiptActivity();
-                // Use card details for payment processing
-                // Update stock levels in Firebase, display receipt, etc.
-            }
-        });
-
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-
-        builder.show();
-    }
-
-
-    private void navigateToReceiptActivity() {
-        // Generate a transaction number
-        String transactionNumber = generateTransactionNumber();
-        updateStock();
-        // Start the receipt activity
-        Intent intent = new Intent(this, ReceiptActivity.class);
-        intent.putExtra("totalAmount", totalAmount);
-        intent.putExtra("paymentMethod", paymentMethod);
-        intent.putExtra("transactionNumber", transactionNumber);
-
-       // deleteCartData();
-
-        startActivity(intent);
-        finish(); // Optional: Finish the current activity if you don't need to go back to it
-    }
-    private void updateStock() {
+    public void updateStock() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
             String userId = user.getUid();
@@ -356,7 +265,6 @@ public class CheckoutActivity extends AppCompatActivity {
     }
 
 
-
     private void deleteCartData() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
@@ -378,13 +286,9 @@ public class CheckoutActivity extends AppCompatActivity {
     }
 
 
-    private String generateTransactionNumber() {
-        // Generate a unique transaction number here, for example, you can use a combination of current time and user ID
-        // Here's a simple example, you can customize it as per your requirements
-        return "TXN-" + System.currentTimeMillis();
-    }
-
-
 }
+
+
+
 
 
